@@ -28,6 +28,8 @@ import LaserShaderType from "../shaders/LaserShaderType";
 
 import { GameEventType } from "../../Wolfie2D/Events/GameEventType";
 import BasicRecording from "../../Wolfie2D/Playback/BasicRecording";
+import BasicRecorder from "../../Wolfie2D/Playback/BasicRecorder";
+import BasicReplayer from "../../Wolfie2D/Playback/BasicReplayer";
 
 import { HW2Events } from "../HW2Events";
 import Layer from "../../Wolfie2D/Scene/Layer";
@@ -64,8 +66,12 @@ export default class HW2Scene extends Scene {
 
     // A flag to indicate whether or not this scene is being recorded
     private recording: boolean;
+
     // The seed that should be set before the game starts
     private seed: string;
+
+	//A flag to indicate whether player is dead
+	private dead: boolean;
 
 	// Sprites for the background images
 	private bg1: Sprite;
@@ -115,7 +121,8 @@ export default class HW2Scene extends Scene {
 	 */
 	public override initScene(options: Record<string, any>): void {
 		this.seed = options.seed === undefined ? RandUtils.randomSeed() : options.seed;
-        this.recording = options.recording === undefined ? false : options.recording; 
+        this.recording = options.recording === undefined ? false : options.recording;
+		
 	}
 	/**
 	 * @see Scene.loadScene()
@@ -139,6 +146,7 @@ export default class HW2Scene extends Scene {
 			LaserShaderType.VSHADER, 
 			LaserShaderType.FSHADER
     	);
+
 	}
 	/**
 	 * @see Scene.startScene()
@@ -164,11 +172,20 @@ export default class HW2Scene extends Scene {
 
 		// Subscribe to player events
 		this.receiver.subscribe(HW2Events.CHARGE_CHANGE);
+		this.receiver.subscribe(HW2Events.HEALTH_CHANGE);
+		this.receiver.subscribe(HW2Events.AIR_CHANGE);
 		this.receiver.subscribe(HW2Events.SHOOT_LASER);
 		this.receiver.subscribe(HW2Events.DEAD);
+		this.receiver.subscribe(HW2Events.BUBBLE_POPPED);
+		//this.receiver.subscribe(GameEventType.START_RECORDING);
+		//this.receiver.subscribe(GameEventType.STOP_RECORDING);
 
 		// Subscribe to laser events
 		this.receiver.subscribe(HW2Events.FIRING_LASER);
+
+		if(this.recording){
+			//this.emitter.fireEvent(GameEventType.START_RECORDING, {recording: this.record})
+		}
 	}
 	/**
 	 * @see Scene.updateScene 
@@ -186,6 +203,7 @@ export default class HW2Scene extends Scene {
 		// Handles mine and bubble collisions
 		this.handleMinePlayerCollisions();
 		this.bubblesPopped += this.handleBubblePlayerCollisions();
+		
 
 		// Handle timers
 		this.handleTimers();
@@ -195,6 +213,10 @@ export default class HW2Scene extends Scene {
 		// Handle screen despawning of mines and bubbles
 		for (let mine of this.mines) if (mine.visible) this.handleScreenDespawn(mine);
 		for (let bubble of this.bubbles) if (bubble.visible) this.handleScreenDespawn(bubble);
+
+		// Control Player Position
+		this.wrapPlayer(this.player,this.viewport.getCenter(), this.viewport.getHalfSize());
+		this.lockPlayer(this.player,this.viewport.getCenter(), this.viewport.getHalfSize());
 	}
     /**
      * @see Scene.unloadScene()
@@ -223,7 +245,12 @@ export default class HW2Scene extends Scene {
 				break;
 			}
 			case HW2Events.DEAD: {
+				if(this.dead){
+					//this.emitter.fireEvent(GameEventType.STOP_RECORDING)
+					break;
+				}
 				this.gameOverTimer.start();
+				this.dead = true;
 				break;
 			}
 			case HW2Events.CHARGE_CHANGE: {
@@ -234,6 +261,31 @@ export default class HW2Scene extends Scene {
 				this.minesDestroyed += this.handleMineLaserCollisions(event.data.get("laser"), this.mines);
 				break;
 			}
+			case HW2Events.HEALTH_CHANGE: {
+				this.handleHealthChange(event.data.get("cur_hp"), event.data.get("max_hp"));
+				break;
+			}
+			case HW2Events.AIR_CHANGE: {
+				this.handleAirChange(event.data.get("cur_air"), event.data.get("max_air"));
+				break
+			}
+			case HW2Events.BUBBLE_POPPED: {
+
+				this.handleBubblePopped(event.data.get("id"));
+				break;
+			}
+			/*case GameEventType.START_RECORDING:{
+				console.log("Start recording")
+				this.recorder.start(event.data.get("recording"))
+				
+				break;
+
+			}
+			case GameEventType.STOP_RECORDING:{
+				console.log("Stop recording")
+				this.recorder.stop()
+				break;
+			}*/
 			default: {
 				throw new Error(`Unhandled event with type ${event.type} caught in ${this.constructor.name}`);
 			}
@@ -492,6 +544,7 @@ export default class HW2Scene extends Scene {
 			// Extract the size of the viewport
 			let paddedViewportSize = this.viewport.getHalfSize().scaled(2).add(this.worldPadding);
 			let viewportSize = this.viewport.getHalfSize().scaled(2);
+			
 
 			// Loop on position until we're clear of the player
 			mine.position.copy(RandUtils.randVec(viewportSize.x, paddedViewportSize.x, paddedViewportSize.y - viewportSize.y, viewportSize.y));
@@ -502,6 +555,7 @@ export default class HW2Scene extends Scene {
 			mine.setAIActive(true, {});
 			// Start the mine spawn timer - spawn a mine every half a second I think
 			this.mineSpawnTimer.start(100);
+			
 
 		}
 	}
@@ -538,6 +592,30 @@ export default class HW2Scene extends Scene {
 	 */
 	protected spawnBubble(): void {
 		// TODO spawn bubbles!
+		let bubble = this.bubbles.find((bubble) => { return !bubble.visible });
+
+		if (bubble){
+			// Bring this mine to life
+			bubble.visible = true;
+
+			// Extract the size of the viewport
+			
+			let viewportSize = this.viewport.getHalfSize().scaled(2);
+
+			let spawn_region_x_1 = this.viewport.getOrigin().x
+			let spawn_region_x_2 = viewportSize.x
+			let spawn_region_y_1 = viewportSize.y
+			let spawn_region_y_2 = viewportSize.y + this.worldPadding.y
+
+			
+			bubble.position.copy(RandUtils.randVec(spawn_region_x_1, spawn_region_x_2, spawn_region_y_1, spawn_region_y_2));
+			
+			bubble.setAIActive(true, {});
+			
+			this.bubbleSpawnTimer.reset()
+			this.bubbleSpawnTimer.start(100)
+
+		}
 	}
 	/**
 	 * This function takes in a GameNode that may be out of bounds of the viewport and
@@ -584,6 +662,18 @@ export default class HW2Scene extends Scene {
 	 */
 	public handleScreenDespawn(node: CanvasNode): void {
         // TODO - despawn the game nodes when they move out of the padded viewport
+		let left_bound = this.viewport.getOrigin().x - this.worldPadding.x
+		let right_bound = this.viewport.getHalfSize().scaled(2).x + this.worldPadding.x
+		let top_bound = this.viewport.getOrigin().y - this.worldPadding.y
+		let bottom_bound = this.viewport.getHalfSize().scaled(2).y + this.worldPadding.y
+
+		if( (node.position.x < left_bound) || (node.position.x > right_bound) || (node.position.y < top_bound) || (node.position.y > bottom_bound)){
+			node.position.copy(Vec2.ZERO);
+            node.visible = false
+			node.setAIActive(false, {}) 
+
+
+		}
 	}
 
 	/** Methods for updating the UI */
@@ -655,6 +745,16 @@ export default class HW2Scene extends Scene {
 		let unit = this.airBarBg.size.x / maxAir;
 		this.airBar.size.set(this.airBarBg.size.x - unit * (maxAir - currentAir), this.airBarBg.size.y);
 		this.airBar.position.set(this.airBarBg.position.x - (unit / 2) * (maxAir - currentAir), this.airBarBg.position.y);
+	}
+
+
+	protected handleBubblePopped(id : number){
+		for(let bubble of this.bubbles){
+			if(bubble.id == id){
+				bubble.visible = false;
+				bubble.position.copy(Vec2.ZERO)
+			}
+		}
 	}
 	/**
 	 * This method handles updating the charge of player's laser in the UI.
@@ -736,7 +836,17 @@ export default class HW2Scene extends Scene {
 	 */
 	public handleBubblePlayerCollisions(): number {
 		// TODO check for collisions between the player and the bubbles
-        return;
+		let collisions = 0;
+		
+		for (let bubble of this.bubbles) {
+			if (HW2Scene.checkAABBtoCircleCollision(this.player.collisionShape as AABB,bubble.collisionShape as Circle)) {
+				this.emitter.fireEvent(HW2Events.PLAYER_BUBBLE_COLLISION, {id: bubble.id});
+				this.emitter.fireEvent(HW2Events.BUBBLE_POPPED, {id: bubble.id});
+				console.log("Player_BUBBLE_Collision Event emitted")
+				collisions += 1;
+			}
+		}	
+		return collisions;
 	}
 
 	/**
@@ -758,9 +868,11 @@ export default class HW2Scene extends Scene {
 	 */
 	public handleMinePlayerCollisions(): number {
 		let collisions = 0;
+		
 		for (let mine of this.mines) {
 			if (mine.visible && this.player.collisionShape.overlaps(mine.collisionShape)) {
 				this.emitter.fireEvent(HW2Events.PLAYER_MINE_COLLISION, {id: mine.id});
+				
 				collisions += 1;
 			}
 		}	
@@ -810,7 +922,27 @@ export default class HW2Scene extends Scene {
 	 */
 	public static checkAABBtoCircleCollision(aabb: AABB, circle: Circle): boolean {
         // TODO implement collision detection for AABBs and Circles
-        return;
+		let dx = Math.abs(circle.x - aabb.x);
+		let dy = Math.abs(circle.y - aabb.y);
+
+		if(dx > (aabb.hw + circle.radius)){
+			return false;
+		}
+
+		if(dy > (aabb.hh + circle.radius)){
+			return false;
+		}
+
+		if(dx <= (aabb.hw)){
+			return true;
+		}
+		if(dy <= (aabb.hh)){
+			return true;
+		}
+
+		let dcorner = Math.pow((dx - aabb.hw),2) + Math.pow((dy-aabb.hh),2);
+		return (dcorner <= Math.pow(circle.radius,2));
+		
 	}
 
     /** Methods for locking and wrapping nodes */
@@ -860,7 +992,19 @@ export default class HW2Scene extends Scene {
 	 * 							X THIS IS OUT OF BOUNDS													
 	 */
 	protected wrapPlayer(player: CanvasNode, viewportCenter: Vec2, viewportHalfSize: Vec2): void {
-		// TODO wrap the player around the top/bottom of the screen
+		// TODO wrap the player around the top/bottom of the scree
+
+		let upper_bound = this.viewport.getOrigin().y;
+		let lower_bound = viewportHalfSize.y * 2;
+
+		if(player.position.y < upper_bound){
+			player.position.copy(new Vec2(player.position.x, lower_bound));
+
+		}
+		else if(player.position.y > lower_bound){
+			player.position.copy(new Vec2(player.position.x, upper_bound));
+		}
+		return
 	}
 
     /**
@@ -904,6 +1048,16 @@ export default class HW2Scene extends Scene {
 	 */
 	protected lockPlayer(player: CanvasNode, viewportCenter: Vec2, viewportHalfSize: Vec2): void {
 		// TODO prevent the player from moving off the left/right side of the screen
+		let player_left_edge = player.position.x - (player.size.x /2) 
+		let player_right_edge = player.position.x + (player.size.x/2)
+
+		if(player_left_edge < 0){
+			player.position.copy(new Vec2(player.size.x /2, player.position.y))
+		}
+		else if(player_right_edge > viewportHalfSize.x * 2){
+			player.position.copy(new Vec2((viewportHalfSize.x * 2) - player.size.x / 2, player.position.y))
+		}
+		return
 	}
 
 	public handleTimers(): void {
@@ -916,7 +1070,9 @@ export default class HW2Scene extends Scene {
 			this.spawnBubble();
 		}
 		// If the game-over timer has run, change to the game-over scene
+		
 		if (this.gameOverTimer.hasRun() && this.gameOverTimer.isStopped()) {
+			
 		 	this.sceneManager.changeToScene(GameOver, {
 				bubblesPopped: this.bubblesPopped, 
 				minesDestroyed: this.minesDestroyed,

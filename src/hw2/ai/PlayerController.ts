@@ -33,6 +33,8 @@ export default class PlayerController implements AI {
     private maxAir: number;
     private minAir: number;
 
+	private hit: boolean;
+
     private currentSpeed: number;
 
     private currentCharge: number;
@@ -41,6 +43,7 @@ export default class PlayerController implements AI {
 
 	/** A timer for charging the player's laser cannon thing */
 	private laserTimer: Timer;
+	private getHitTimer : Timer;
 
 	// A receiver and emitter to hook into the event queue
 	private receiver: Receiver;
@@ -59,8 +62,13 @@ export default class PlayerController implements AI {
 		this.emitter = new Emitter();
 
 		this.laserTimer = new Timer(2500, this.handleLaserTimerEnd, false);
+
+		this.getHitTimer = new Timer(1000, this.handlegetHitTimerEnd, false);
 		
 		this.receiver.subscribe(HW2Events.SHOOT_LASER);
+		this.receiver.subscribe(HW2Events.PLAYER_MINE_COLLISION);
+		this.receiver.subscribe(HW2Events.DEAD);
+		this.receiver.subscribe(HW2Events.PLAYER_BUBBLE_COLLISION);
 
 		this.activate(options);
 	}
@@ -85,6 +93,8 @@ export default class PlayerController implements AI {
 
         // Set the player's movement speed
         this.currentSpeed = 300
+
+		this.hit = false;
 
         // Play the idle animation by default
 		this.owner.animation.play(PlayerAnimations.IDLE);
@@ -137,9 +147,11 @@ export default class PlayerController implements AI {
 
 		// Player looses a little bit of air each frame
 		this.currentAir = MathUtils.clamp(this.currentAir - deltaT, this.minAir, this.maxAir);
+		this.emitter.fireEvent(HW2Events.AIR_CHANGE, {cur_air: this.currentAir, max_air: this.maxAir})
 
 		// If the player is out of air - start subtracting from the player's health
 		this.currentHealth = this.currentAir <= this.minAir ? MathUtils.clamp(this.currentHealth - deltaT*2, this.minHealth, this.maxHealth) : this.currentHealth;
+		this.emitter.fireEvent(HW2Events.HEALTH_CHANGE, {cur_hp: this.currentHealth, max_hp : this.maxHealth})
 	}
 	/**
 	 * This method handles all events that the reciever for the PlayerController is
@@ -155,6 +167,25 @@ export default class PlayerController implements AI {
 				this.handleShootLaserEvent(event);
 				break;
 			}
+			case HW2Events.PLAYER_MINE_COLLISION: {
+				if(this.hit){
+					break;
+				}
+				this.handleMinePlayerCollision(event);
+				break;
+
+			}
+			case HW2Events.PLAYER_BUBBLE_COLLISION: {
+				this.handleBubblePlayerCollision(event);
+				console.log("Player: Received player bubble collision")
+				break;
+			}
+			case HW2Events.DEAD: {
+				this.handleDeath();
+				
+				break;
+			}
+			
 			default: {
 				throw new Error(`Unhandled event of type: ${event.type} caught in PlayerController`);
 			}
@@ -176,6 +207,28 @@ export default class PlayerController implements AI {
 		this.laserTimer.start();
 	}
 
+	protected handleMinePlayerCollision(event: GameEvent): void {
+		if(this.getHitTimer.isStopped){
+			
+			this.currentHealth = this.currentHealth - 1;
+			this.owner.animation.playIfNotAlready(PlayerAnimations.HIT, false)
+			this.emitter.fireEvent(HW2Events.HEALTH_CHANGE, {cur_hp: this.currentHealth, max_hp : this.maxHealth})
+			this.getHitTimer.start();
+			this.hit = true;
+			
+		}	
+	}
+
+	protected handleDeath(): void {
+		this.owner.animation.playIfNotAlready(PlayerAnimations.DEATH, false)
+	}
+
+
+	protected handleBubblePlayerCollision(event:GameEvent): void{
+		this.currentAir = MathUtils.clamp(this.currentAir + 1, this.minAir, this.maxAir)
+		this.emitter.fireEvent(HW2Events.AIR_CHANGE, {cur_air:this.currentAir, max_air: this.maxAir})
+	}
+
 	/** 
 	 * A callback function that increments the number of charges the player's laser cannon has.
 	 * 
@@ -191,6 +244,16 @@ export default class PlayerController implements AI {
 			this.laserTimer.start();
 		}
 	}
+
+
+	protected handlegetHitTimerEnd = () => {
+		this.owner.animation.playIfNotAlready(PlayerAnimations.IDLE, false);
+		this.hit = false;
+		
+	}
+
+
+
 
 } 
 
