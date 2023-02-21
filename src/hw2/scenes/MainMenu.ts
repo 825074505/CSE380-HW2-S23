@@ -9,6 +9,9 @@ import GameEvent from "../../Wolfie2D/Events/GameEvent";
 
 import RandUtils from "../../Wolfie2D/Utils/RandUtils";
 import { GameEventType } from "../../Wolfie2D/Events/GameEventType";
+import BasicRecording from "../../Wolfie2D/Playback/BasicRecording";
+import BasicReplayer from "../../Wolfie2D/Playback/BasicReplayer";
+import { HW2Events } from "../HW2Events";
 
 // Layers in the main menu
 const MainMenuLayer = {
@@ -32,7 +35,9 @@ export default class MainMenu extends Scene {
     private controls: Layer;
     private about: Layer;
 
+
     public override startScene(){
+        
         const center = this.viewport.getCenter();
 
         // Main menu screen
@@ -127,6 +132,10 @@ export default class MainMenu extends Scene {
         this.receiver.subscribe(MainMenuEvent.ABOUT);
         this.receiver.subscribe(MainMenuEvent.MENU);
         this.receiver.subscribe(MainMenuEvent.PLAY_RECORDING);
+
+        
+
+        
     }
 
     public override updateScene(){
@@ -159,11 +168,18 @@ export default class MainMenu extends Scene {
             }
             case MainMenuEvent.PLAY_RECORDING: {
                 // TODO play the recording here
+
+                //this.replayer.start(this.recording, () => {this.sceneManager.changeToScene(MainMenu)});
+                this.emitter.fireEvent(GameEventType.PLAY_RECORDING, {onEnd: ()=> {this.sceneManager.changeToScene(MainMenu)}});
                 break;
+                
             }
             default: {
                 throw new Error(`Unhandled event caught in MainMenu: "${event.type}"`);
             }
         }
     }
+
+
+    
 }

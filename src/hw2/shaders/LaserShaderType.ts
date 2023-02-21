@@ -65,8 +65,8 @@ export default class LaserShaderType extends RectShaderType {
 
 		//color
 		let webGL_color = options.color.toWebGL();
-		const circle_Color = gl.getUniformLocation(program, "circle_Color");
-		gl.uniform4f(circle_Color, webGL_color[0], webGL_color[1], webGL_color[2], webGL_color[3]);
+		const laser_Color = gl.getUniformLocation(program, "laser_Color");
+		gl.uniform4f(laser_Color, webGL_color[0], webGL_color[1], webGL_color[2], webGL_color[3]);
 
 		// Draw the quad
 		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);

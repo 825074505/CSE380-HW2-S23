@@ -67,6 +67,9 @@ export default class HW2Scene extends Scene {
     // A flag to indicate whether or not this scene is being recorded
     private recording: boolean;
 
+	private recorder : BasicRecorder;
+	private record : BasicRecording;
+	private replayer : BasicReplayer;
     // The seed that should be set before the game starts
     private seed: string;
 
@@ -122,7 +125,10 @@ export default class HW2Scene extends Scene {
 	public override initScene(options: Record<string, any>): void {
 		this.seed = options.seed === undefined ? RandUtils.randomSeed() : options.seed;
         this.recording = options.recording === undefined ? false : options.recording;
-		
+		RandUtils.seed = this.seed;
+		this.record = new BasicRecording(HW2Scene,{seed:this.seed});  //Recording Functionality
+		this.recorder = new BasicRecorder();
+		this.replayer = new BasicReplayer();
 	}
 	/**
 	 * @see Scene.loadScene()
@@ -177,14 +183,15 @@ export default class HW2Scene extends Scene {
 		this.receiver.subscribe(HW2Events.SHOOT_LASER);
 		this.receiver.subscribe(HW2Events.DEAD);
 		this.receiver.subscribe(HW2Events.BUBBLE_POPPED);
-		//this.receiver.subscribe(GameEventType.START_RECORDING);
-		//this.receiver.subscribe(GameEventType.STOP_RECORDING);
+		this.receiver.subscribe(GameEventType.START_RECORDING);
+		this.receiver.subscribe(GameEventType.STOP_RECORDING);
+		this.receiver.subscribe(GameEventType.PLAY_RECORDING);
 
 		// Subscribe to laser events
 		this.receiver.subscribe(HW2Events.FIRING_LASER);
 
 		if(this.recording){
-			//this.emitter.fireEvent(GameEventType.START_RECORDING, {recording: this.record})
+			this.emitter.fireEvent(GameEventType.START_RECORDING, {recording: this.record}) //Recording Functionality
 		}
 	}
 	/**
@@ -246,11 +253,11 @@ export default class HW2Scene extends Scene {
 			}
 			case HW2Events.DEAD: {
 				if(this.dead){
-					//this.emitter.fireEvent(GameEventType.STOP_RECORDING)
 					break;
 				}
 				this.gameOverTimer.start();
 				this.dead = true;
+				this.emitter.fireEvent(GameEventType.STOP_RECORDING); //Recording Functionality
 				break;
 			}
 			case HW2Events.CHARGE_CHANGE: {
@@ -274,18 +281,22 @@ export default class HW2Scene extends Scene {
 				this.handleBubblePopped(event.data.get("id"));
 				break;
 			}
-			/*case GameEventType.START_RECORDING:{
+			case GameEventType.START_RECORDING:{
 				console.log("Start recording")
 				this.recorder.start(event.data.get("recording"))
-				
 				break;
 
 			}
 			case GameEventType.STOP_RECORDING:{
 				console.log("Stop recording")
-				this.recorder.stop()
+				this.recorder.stop();
+				
 				break;
-			}*/
+			}
+			case GameEventType.PLAY_RECORDING:{
+				this.replayer.start(this.record, event.data.get("onEnd"));
+				break;
+			}
 			default: {
 				throw new Error(`Unhandled event with type ${event.type} caught in ${this.constructor.name}`);
 			}
@@ -842,7 +853,7 @@ export default class HW2Scene extends Scene {
 			if (HW2Scene.checkAABBtoCircleCollision(this.player.collisionShape as AABB,bubble.collisionShape as Circle)) {
 				this.emitter.fireEvent(HW2Events.PLAYER_BUBBLE_COLLISION, {id: bubble.id});
 				this.emitter.fireEvent(HW2Events.BUBBLE_POPPED, {id: bubble.id});
-				console.log("Player_BUBBLE_Collision Event emitted")
+				
 				collisions += 1;
 			}
 		}	
@@ -1076,7 +1087,7 @@ export default class HW2Scene extends Scene {
 		 	this.sceneManager.changeToScene(GameOver, {
 				bubblesPopped: this.bubblesPopped, 
 				minesDestroyed: this.minesDestroyed,
-				timePassed: this.timePassed
+				timePassed: this.timePassed,
 			}, {});
 		}
 	}

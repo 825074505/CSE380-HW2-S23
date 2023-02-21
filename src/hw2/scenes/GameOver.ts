@@ -2,6 +2,7 @@ import Vec2 from "../../Wolfie2D/DataTypes/Vec2";
 import Input from "../../Wolfie2D/Input/Input";
 import Label from "../../Wolfie2D/Nodes/UIElements/Label";
 import { UIElementType } from "../../Wolfie2D/Nodes/UIElements/UIElementTypes";
+import BasicRecording from "../../Wolfie2D/Playback/BasicRecording";
 import Scene from "../../Wolfie2D/Scene/Scene";
 import Color from "../../Wolfie2D/Utils/Color";
 import MainMenu from "./MainMenu";
@@ -18,6 +19,7 @@ export default class GameOver extends Scene {
     private bubbleTier: number;
     private mineTier: number;
     private timeTier: number;
+    private recording : BasicRecording;
 
     // The emojis for the different tiers on the GameOver screen. Your welcome ;) - PeteyLumpkins
     private static tier = [
@@ -35,6 +37,7 @@ export default class GameOver extends Scene {
         this.timeTier = this.getTimeTier(this.timePassed);
         this.mineTier = this.getMineTier(this.minesDestroyed);
         this.bubbleTier = this.getBubbleTier(this.bubblesPopped);
+        this.recording = options.recording;
     }
 
     public getTimeTier(time: number) {
