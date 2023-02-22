@@ -126,8 +126,8 @@ export default class HW2Scene extends Scene {
 		this.seed = options.seed === undefined ? RandUtils.randomSeed() : options.seed;
         this.recording = options.recording === undefined ? false : options.recording;
 		RandUtils.seed = this.seed;
-		this.record = new BasicRecording(HW2Scene,{seed:this.seed});  //Recording Functionality
-		this.recorder = new BasicRecorder();
+		this.record = this.recording ? new BasicRecording(HW2Scene,{seed:this.seed}) : null;  //Recording Functionality
+		this.recorder = this.recording ? new BasicRecorder() : null;
 		this.replayer = new BasicReplayer();
 	}
 	/**
@@ -257,7 +257,7 @@ export default class HW2Scene extends Scene {
 				}
 				this.gameOverTimer.start();
 				this.dead = true;
-				this.emitter.fireEvent(GameEventType.STOP_RECORDING); //Recording Functionality
+				this.emitter.fireEvent(GameEventType.STOP_RECORDING);  //Recording Functionality
 				break;
 			}
 			case HW2Events.CHARGE_CHANGE: {
@@ -290,11 +290,12 @@ export default class HW2Scene extends Scene {
 			case GameEventType.STOP_RECORDING:{
 				console.log("Stop recording")
 				this.recorder.stop();
-				
+				this.recorder.destroy();
 				break;
 			}
 			case GameEventType.PLAY_RECORDING:{
 				this.replayer.start(this.record, event.data.get("onEnd"));
+				
 				break;
 			}
 			default: {
