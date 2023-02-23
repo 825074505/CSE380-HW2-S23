@@ -23,18 +23,12 @@ export default class BasicRecorder implements Recorder<BasicRecording, BasicLogI
 		this._recording = null;
 		this._active = false;
 
-		/*this._receiver.subscribe(
+		this._receiver.subscribe(
 			[GameEventType.MOUSE_DOWN, GameEventType.MOUSE_UP, GameEventType.MOUSE_MOVE, 
 			GameEventType.KEY_DOWN, GameEventType.KEY_UP, GameEventType.CANVAS_BLUR,
 			GameEventType.WHEEL_DOWN, GameEventType.WHEEL_UP]
-		);*/
-		this._receiver.subscribe(
-			[GameEventType.MOUSE_DOWN,
-			GameEventType.KEY_DOWN,
-			GameEventType.MOUSE_UP,
-			GameEventType.KEY_UP
-			]
 		);
+		
 	}
 
     /**

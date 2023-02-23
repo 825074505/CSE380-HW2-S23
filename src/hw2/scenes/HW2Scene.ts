@@ -67,9 +67,9 @@ export default class HW2Scene extends Scene {
     // A flag to indicate whether or not this scene is being recorded
     private recording: boolean;
 
-	private recorder : BasicRecorder;
+	//private recorder : BasicRecorder;
 	private record : BasicRecording;
-	private replayer : BasicReplayer;
+	//private replayer : BasicReplayer;
     // The seed that should be set before the game starts
     private seed: string;
 
@@ -127,8 +127,8 @@ export default class HW2Scene extends Scene {
         this.recording = options.recording === undefined ? false : options.recording;
 		RandUtils.seed = this.seed;
 		this.record = this.recording ? new BasicRecording(HW2Scene,{seed:this.seed}) : null;  //Recording Functionality
-		this.recorder = this.recording ? new BasicRecorder() : null;
-		this.replayer = new BasicReplayer();
+		//this.recorder = this.recording ? new BasicRecorder() : null;
+		//this.replayer = new BasicReplayer();
 	}
 	/**
 	 * @see Scene.loadScene()
@@ -283,18 +283,19 @@ export default class HW2Scene extends Scene {
 			}
 			case GameEventType.START_RECORDING:{
 				console.log("Start recording")
-				this.recorder.start(event.data.get("recording"))
+				//this.recorder.start(event.data.get("recording"))
 				break;
 
 			}
 			case GameEventType.STOP_RECORDING:{
 				console.log("Stop recording")
-				this.recorder.stop();
-				this.recorder.destroy();
+				//this.recorder.stop();
+				//this.recorder.destroy();
 				break;
 			}
 			case GameEventType.PLAY_RECORDING:{
-				this.replayer.start(this.record, event.data.get("onEnd"));
+				console.log("Playing_Recording")
+				//this.replayer.start(this.record, event.data.get("onEnd"));
 				
 				break;
 			}
